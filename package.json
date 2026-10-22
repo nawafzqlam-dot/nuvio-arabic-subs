@@ -1,0 +1,17 @@
+{
+  "name": "nuvio-arabic-subs",
+  "version": "1.0.0",
+  "description": "Stremio/Nuvio subtitle addon that returns ranked Arabic subtitles (SubDL, OpenSubtitles, Wyzie) as clean UTF-8 SRT, ready for Nuvio's built-in Auto Sync.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
+  "license": "MIT"
+}
