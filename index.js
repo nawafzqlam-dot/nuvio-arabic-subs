@@ -440,10 +440,15 @@ async function subtitlesHandler(cfg, cfgSegment, baseUrl, type, rawId, extraSegm
 
   const results = await Promise.allSettled([searchSubdl(cfg, vid), searchOpenSubtitles(cfg, vid), searchWyzie(cfg, vid)]);
   const cands = [];
-  for (const r of results) {
+  const names = ["subdl", "opensubtitles", "wyzie"];
+  results.forEach((r, i) => {
     if (r.status === "fulfilled") cands.push(...r.value);
-    else console.warn("[source error]", r.reason?.message || r.reason);
-  }
+    else console.warn(`[${names[i]} error]`, r.reason?.message || r.reason);
+  });
+  console.log(
+    `[${rawId}]`,
+    results.map((r, i) => `${names[i]}=${r.status === "fulfilled" ? r.value.length : "ERR"}`).join(" "),
+  );
   const ranked = rank(cands, cfg, extra);
 
   // Pass the video id along in the URL so zip packs can be narrowed to the episode.
