@@ -532,4 +532,23 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Arabic Subs addon listening on http://localhost:${PORT}  (open /configure)`);
+  startKeepAlive();
 });
+
+// Free hosts (Render, Koyeb, ...) spin the service down after ~15 min without
+// inbound traffic. Hitting our own public URL every 10 min keeps it awake.
+// Render sets RENDER_EXTERNAL_URL automatically; set KEEPALIVE_URL elsewhere.
+function startKeepAlive() {
+  const url = process.env.KEEPALIVE_URL || process.env.RENDER_EXTERNAL_URL;
+  if (!url) return;
+  const every = Number(process.env.KEEPALIVE_MINUTES || 10) * 60 * 1000;
+  const ping = async () => {
+    try {
+      await fetchWithTimeout(`${url.replace(/\/$/, "")}/health`, {}, 30000);
+    } catch (err) {
+      console.warn("[keepalive]", err.message);
+    }
+  };
+  setInterval(ping, every).unref();
+  console.log(`[keepalive] pinging ${url}/health every ${every / 60000} min`);
+}
