@@ -50,3 +50,11 @@ docker run -p 7700:7700 arabic-subs
 
 - Auto Sync في Nuvio يعمل مع مشغّل ExoPlayer الداخلي على Android والفيديو الذي يحتوي توقيت ترجمة مضمّن (أغلب ملفات WEB-DL/BluRay). بدون توقيت مضمّن تبقى الترجمة كما هي.
 - حدود OpenSubtitles المجانية صغيرة (تحميلات/يوم)؛ لذلك SubDL هو المصدر الأساسي الموصى به.
+
+## إضافة ثانية: My Google Drive
+
+نفس الخدمة تقدّم إضافة ثانية على `/gdrive/manifest.json` تعرض أفلامك ومسلسلاتك من Google Drive كصفوف في Nuvio (مع بوسترات عبر Cinemeta) وتشغّلها مباشرة من Google.
+
+- الإعداد من `/gdrive/setup` (OAuth مرة واحدة ثم متغيرات `GDRIVE_CLIENT_ID` / `GDRIVE_CLIENT_SECRET` / `GDRIVE_REFRESH_TOKEN`، واختيارياً `GDRIVE_FOLDER_ID`).
+- بديل بدون OAuth لمجلد عام: `GDRIVE_API_KEY` + `GDRIVE_FOLDER_ID`.
+- `/gdrive/refresh` يعيد الفهرسة فوراً، و`/gdrive/status` يعرض الحالة.

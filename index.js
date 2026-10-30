@@ -5,6 +5,7 @@
 import http from "node:http";
 import { unzipSync } from "fflate";
 import { configurePage } from "./configure.js";
+import * as gdrive from "./gdrive.js";
 
 const PORT = Number(process.env.PORT || 7700);
 const UA = "NuvioArabicSubs/1.0 (+https://github.com/)";
@@ -488,6 +489,8 @@ const server = http.createServer(async (req, res) => {
 
     if (parts.length === 0 || parts[0] === "configure") return send(res, 200, configurePage(baseUrl), { "Content-Type": "text/html; charset=utf-8" });
 
+    if (parts[0] === "gdrive") return gdriveRouter(req, res, url, baseUrl, parts.slice(1));
+
     // Optional leading config segment
     let cfgSegment = "";
     if (!["manifest.json", "subtitles", "sub", "health"].includes(parts[0])) cfgSegment = parts.shift();
@@ -530,6 +533,50 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// ---------- /gdrive/* — "My Google Drive" addon ----------
+const html = (res, body, status = 200) => send(res, status, body, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+
+async function gdriveRouter(req, res, url, baseUrl, parts) {
+  const [head, ...rest] = parts;
+  const strip = (s) => (s || "").replace(/\.json$/, "");
+
+  if (!head || head === "setup" || head === "configure") return html(res, gdrive.setupPage(baseUrl));
+  if (head === "status") return json(res, gdrive.status(), 200, "no-store");
+  if (head === "refresh") {
+    const idx = await gdrive.buildIndex(true);
+    return json(res, { ok: !idx.error, error: idx.error, movies: idx.movies.size, series: idx.series.size }, 200, "no-store");
+  }
+  if (head === "oauth" && rest[0] === "start") {
+    const id = url.searchParams.get("client_id")?.trim();
+    const secret = url.searchParams.get("client_secret")?.trim();
+    if (!id || !secret) return html(res, gdrive.setupPage(baseUrl, null, "أدخل Client ID و Client secret"), 400);
+    res.writeHead(302, { Location: gdrive.setupStart(baseUrl, id, secret) });
+    return res.end();
+  }
+  if (head === "oauth" && rest[0] === "callback") {
+    const err = url.searchParams.get("error");
+    if (err) return html(res, gdrive.setupPage(baseUrl, null, `Google: ${err}`), 400);
+    try {
+      const result = await gdrive.setupCallback(baseUrl, url.searchParams.get("code"), url.searchParams.get("state"));
+      return html(res, gdrive.setupPage(baseUrl, result));
+    } catch (e) {
+      return html(res, gdrive.setupPage(baseUrl, null, e.message), 400);
+    }
+  }
+  if (head === "manifest.json") return json(res, gdrive.manifest(baseUrl), 200, "no-store");
+  if (!gdrive.gdriveConfigured()) return json(res, { metas: [], streams: [], meta: null, error: "not configured" }, 200, "no-store");
+
+  if (head === "catalog" && rest.length >= 2) {
+    const extra = parseExtra(strip(rest[2]));
+    return json(res, await gdrive.catalog(baseUrl, rest[0], strip(rest[1]), extra), 200, "public, max-age=120");
+  }
+  if (head === "meta" && rest.length >= 2) return json(res, await gdrive.meta(baseUrl, rest[0], decodeURIComponent(strip(rest[1]))), 200, "public, max-age=300");
+  if (head === "stream" && rest.length >= 2) return json(res, await gdrive.stream(baseUrl, rest[0], strip(rest[1])), 200, "no-store");
+  if (head === "play" && rest[0]) return gdrive.play(req, res, rest[0]);
+  if (head === "thumb" && rest[0]) return gdrive.thumbnail(res, rest[0]);
+  return send(res, 404, "not found");
+}
+
 server.listen(PORT, () => {
   console.log(`Arabic Subs addon listening on http://localhost:${PORT}  (open /configure)`);
   startKeepAlive();
@@ -545,10 +592,12 @@ function startKeepAlive() {
   const ping = async () => {
     try {
       await fetchWithTimeout(`${url.replace(/\/$/, "")}/health`, {}, 30000);
+      if (gdrive.gdriveConfigured()) gdrive.buildIndex().catch(() => {});
     } catch (err) {
       console.warn("[keepalive]", err.message);
     }
   };
+  if (gdrive.gdriveConfigured()) gdrive.buildIndex().catch(() => {});
   setInterval(ping, every).unref();
   console.log(`[keepalive] pinging ${url}/health every ${every / 60000} min`);
 }
