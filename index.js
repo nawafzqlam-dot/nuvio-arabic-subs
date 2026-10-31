@@ -542,6 +542,7 @@ async function gdriveRouter(req, res, url, baseUrl, parts) {
 
   if (!head || head === "setup" || head === "configure") return html(res, gdrive.setupPage(baseUrl));
   if (head === "status") return json(res, gdrive.status(), 200, "no-store");
+  if (head === "privacy" || head === "terms") return html(res, gdrive.legalPage(head, baseUrl));
   if (head === "refresh") {
     const idx = await gdrive.buildIndex(true);
     return json(res, { ok: !idx.error, error: idx.error, movies: idx.movies.size, series: idx.series.size }, 200, "no-store");

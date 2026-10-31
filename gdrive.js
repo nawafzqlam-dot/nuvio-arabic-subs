@@ -487,3 +487,17 @@ pre,code{direction:ltr;text-align:left;background:#0c0e12;border-radius:8px;padd
 export function status() {
   return { configured: gdriveConfigured(), files: index.fileCount, movies: index.movies.size, series: index.series.size, builtAt: index.builtAt ? new Date(index.builtAt).toISOString() : null, error: index.error };
 }
+
+// Minimal legal pages: Google's OAuth consent screen requires public
+// home/privacy/terms URLs before an app can be published.
+export function legalPage(kind, baseUrl) {
+  const privacy = kind === "privacy";
+  const title = privacy ? "Privacy Policy" : "Terms of Service";
+  const body = privacy
+    ? `<p>This is a personal, self-hosted media add-on. It accesses the Google Drive account of its owner only, with read-only scope, to list and stream the owner's own video files inside the Nuvio app.</p>
+<p>No data is sold, shared, or sent to third parties. Access tokens are kept in memory on the owner's own server instance and are used solely to call the Google Drive API on the owner's behalf. File metadata (names, sizes) is cached temporarily to build the library listing. You can revoke access at any time from <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>`
+    : `<p>This add-on is provided as-is, for personal use by its owner, without warranty of any kind. It only streams files that the owner already has in their own Google Drive. The owner is responsible for complying with Google's Terms of Service and applicable law.</p>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · My Google Drive add-on</title>
+<style>body{margin:0;background:#0f1115;color:#e8eaf0;font:16px/1.7 system-ui,sans-serif}main{max-width:720px;margin:0 auto;padding:40px 16px}a{color:#30c48d}</style></head>
+<body><main><h1>${title}</h1>${body}<p>Home: <a href="${baseUrl}/gdrive/">${baseUrl}/gdrive/</a></p></main></body></html>`;
+}
