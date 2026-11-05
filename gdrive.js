@@ -132,18 +132,42 @@ const isVideo = (f) => (f.mimeType || "").startsWith("video/") || VIDEO_EXT.test
 
 // ---------- filename parsing ----------
 const JUNK =
-  /\b(2160p|1080p|720p|480p|4k|uhd|hdr10?\+?|dv|dolby|vision|web[- ]?dl|webrip|bluray|blu-ray|bdrip|brrip|hdtv|hdrip|dvdrip|remux|x264|x265|h\.?264|h\.?265|hevc|avc|aac|ac3|dts|atmos|truehd|ddp?5\.?1|5\.1|7\.1|proper|repack|extended|unrated|remastered|imax|multi|dual|arabic|ar|eng?|sub(bed|s)?|esub|msubs?|yts|yify|rarbg|amzn|nf|dsnp|atvp|hmax|hulu)\b.*$/i;
+  /\b(2160p|1080p|720p|480p|4k|uhd|hdr10?\+?|dv|dolby|vision|web[- ]?dl|webrip|bluray|blu-ray|bdrip|brrip|hdtv|hdrip|dvdrip|dvd|remux|x264|x265|h\.?264|h\.?265|hevc|avc|aac|ac3|dts|atmos|truehd|ddp?5\.?1|5\.1|7\.1|proper|repack|extended|unrated|remastered|imax|multi|dual|arabic|ar|eng?|sub(bed|s)?|esub|msubs?|yts|yify|rarbg|amzn|nf|dsnp|atvp|hmax|hulu|by)\b.*$/i;
+// Arabic site boilerplate often glued to file names ("مشاهدة فيلم X مدبلج مصري").
+const AR_JUNK = /(مشاهدة|فيلم|مسلسل|مدبلج|مدبلجة|مصري|مترجم|مترجمة|كامل|كاملة|اون لاين|اونلاين|بجودة|عالية|حصريا|حصرياً|انمي)/g;
 
 export function parseName(raw) {
   let name = (raw || "").replace(VIDEO_EXT, "");
+  // Drop leading [Group] tags and any other bracketed tags (keep a bare year for later).
+  name = name.replace(/^\s*(\[[^\]]*\]\s*)+/, "").replace(/\[[^\]]*\]/g, " ");
   name = name.replace(/[._]/g, " ").replace(/\s+/g, " ").trim();
   let season = null;
   let episode = null;
-  let m = name.match(/\bS(\d{1,2})\s*E(\d{1,3})\b/i) || name.match(/\b(\d{1,2})x(\d{1,3})\b/) || name.match(/\bSeason\s*(\d{1,2})\s*Episode\s*(\d{1,3})\b/i);
+  let m =
+    name.match(/\bS(\d{1,2})\s*[- ]?\s*E(\d{1,3})\b/i) ||
+    name.match(/\b(\d{1,2})x(\d{1,3})\b/) ||
+    name.match(/\bSeason\s*(\d{1,2})\s*(?:Episode|Ep|E)\s*(\d{1,3})\b/i);
   if (m) {
     season = Number(m[1]);
     episode = Number(m[2]);
     name = name.slice(0, m.index);
+  } else {
+    // "S01" alone, or an episode marker alone ("E05", "Ep 5", "الحلقة 5"), possibly with the
+    // episode number at the very start ("06 Show Name S01").
+    const sOnly = name.match(/\bS(?:eason\s*)?(\d{1,2})\b/i);
+    const eOnly = name.match(/\b(?:E|Ep|Episode)\s*(\d{1,4})\b/i) || name.match(/الحلقة\s*(\d{1,4})/);
+    const lead = name.match(/^(\d{1,3})\b\s*[-–.]?\s*/);
+    if (sOnly && (eOnly || lead)) {
+      season = Number(sOnly[1]);
+      episode = Number((eOnly || lead)[1]);
+      name = name.slice(0, sOnly.index);
+      if (!eOnly && lead) name = name.slice(lead[0].length);
+      else if (eOnly && eOnly.index < sOnly.index) name = name.slice(0, eOnly.index);
+    } else if (eOnly) {
+      season = 1;
+      episode = Number(eOnly[1]);
+      name = name.slice(0, eOnly.index);
+    }
   }
   let year = null;
   const ym = name.match(/[(\[]?\b((?:19|20)\d{2})\b[)\]]?/);
@@ -152,6 +176,7 @@ export function parseName(raw) {
     name = name.slice(0, ym.index);
   }
   name = name.replace(JUNK, "");
+  name = name.replace(AR_JUNK, " ");
   name = name.replace(/[-–—]\s*$/, "").replace(/[()\[\]]/g, "").replace(/\s+/g, " ").trim();
   return { title: name || raw, year, season, episode, isSeries: season != null };
 }
